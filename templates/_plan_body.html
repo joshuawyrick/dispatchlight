@@ -1,0 +1,63 @@
+{# shared by plan.html and plan_print.html: expects p, res, T, st, editable #}
+<div class="tiles">
+  <div class="tile"><div class="v">{{ T.loads }}</div><div class="l">Loads planned{% if T.unassigned %} · <span style="color:var(--bad)">{{ T.unassigned }} not fitted</span>{% endif %}</div></div>
+  <div class="tile"><div class="v">{{ T.slots_used }}<span class="muted" style="font-size:14px">/{{ T.slots }}</span></div><div class="l">Driver slots used{% if T.slots - T.slots_used %} · {{ T.slots - T.slots_used }} not needed{% endif %}</div></div>
+  <div class="tile"><div class="v {{ 'ok' if T.per_hour >= T.target else 'bad' }}">{{ T.per_hour|money }}<span class="muted" style="font-size:13px">/hr</span></div><div class="l">Own trucks gross per hour · target {{ T.target|money }}</div></div>
+  <div class="tile"><div class="v">{{ T.profit|money }}</div><div class="l">Profit · {{ T.profit_fsc|money }} with surcharge</div></div>
+  <div class="tile"><div class="v">{{ T.revenue|money }}</div><div class="l">Revenue · surcharge {{ T.fsc|money }} ({{ '%.1f'|format(T.fsc_pct) }}%)</div></div>
+  <div class="tile"><div class="v">{{ T.loaded_pct }}%</div><div class="l">Loaded miles · {{ '%.0f'|format(T.loaded_miles) }} of {{ '%.0f'|format(T.miles) }} mi</div></div>
+  <div class="tile"><div class="v">{{ '%.0f'|format(T.hours) }} h</div><div class="l">Total shift hours · fuel {{ T.fuel|money }} · driver pay {{ T.driver_pay|money }}{% if T.sub_pay %} · sub pay {{ T.sub_pay|money }}{% endif %}</div></div>
+</div>
+{% if T.warnings %}<div class="danger-box" style="margin-bottom:12px"><b>{{ T.warnings }} rule warning{{ 's' if T.warnings != 1 }}</b> — a shift below breaks an hours or site-window rule after edits. Fix it or rebuild.</div>{% endif %}
+
+{% if editable %}<form method="post" action="/plan/{{ p.id }}/assign" id="assignForm">{% endif %}
+{% for sh in res.shifts %}{% set i = loop.index0 %}
+<div class="shift {{ 'unused' if not sh.used }} {{ 'flag' if sh.warnings }}">
+  <div class="shift-head">
+    <div><div class="title">{{ sh.slot }}{% if sh.is_sub %} <span class="pill sub">sub · keeps {{ sh.share|int }}%</span>{% endif %}{% if sh.fuel_name %} <span class="pill">{{ sh.fuel_name }}</span>{% endif %}</div>
+      {% if editable %}<div class="assign" style="margin-top:6px"><input type="text" name="driver_{{ i }}" value="{{ sh.driver or '' }}" placeholder="driver name"><input type="time" name="start_{{ i }}" value="{{ (sh.start_override|hm)[:5] if sh.start_override is not none else '' }}" title="actual start (blank = recommended {{ sh.start|hm }})"></div>
+      {% elif sh.driver %}<div class="muted small">{{ sh.driver }}</div>{% endif %}</div>
+    {% if sh.used %}
+    <div class="stats">
+      <span>out <b>{{ (sh.start_override if sh.start_override is not none else sh.start)|hm }}</b> back <b>{{ sh.end|hm }}</b></span>
+      <span>on duty <b>{{ sh.duty_hours }}</b>/{{ sh.duty_cap_h }} h</span><span>driving <b>{{ sh.drive_hours }}</b>/{{ sh.drive_cap_h }} h</span>
+      <span>loaded <b>{{ sh.loaded_pct }}%</b> ({{ '%.0f'|format(sh.loaded_miles) }}/{{ '%.0f'|format(sh.loaded_miles + sh.empty_miles) }} mi)</span>
+      <span>{{ sh.loads }} load{{ 's' if sh.loads != 1 }}</span>
+    </div>
+    <div class="money">
+      {% if sh.is_sub %}<div class="p">{{ sh.profit|money }} <span class="muted small">margin</span></div><div class="s">revenue {{ sh.revenue|money }} · sub gets {{ sh.sub_pay|money }}{% if st.fsc_to_subs %} + surcharge {{ sh.fsc|money }}{% endif %}</div>
+      {% else %}<div class="p {{ 'ok' if sh.meets_target else '' }}" style="color:{{ 'var(--ok)' if sh.meets_target else 'var(--bad)' }}">{{ sh.per_hour|money }}/hr</div><div class="s">revenue {{ sh.revenue|money }} · profit {{ sh.profit|money }} (pay {{ sh.driver_pay|money }}, fuel {{ sh.fuel|money }})</div>{% endif %}
+    </div>
+    {% else %}<span class="muted">not needed for this day</span>{% endif %}
+  </div>
+  {% for w in sh.warnings %}<div class="shift-warn">⚠ {{ w }}</div>{% endfor %}
+  {% if sh.used %}
+  <div class="wrap"><table class="stops">
+  <tr><th>Time</th><th>Stop</th><th>Lane · customer</th><th class="num">Miles</th><th class="num">Qty</th><th class="num">Revenue</th></tr>
+  {% for stp in sh.stops %}
+  <tr class="{{ stp.kind }}"><td class="num">{{ stp.arrive|hm }}{% if stp.kind != 'yard' %} – {{ stp.depart|hm }}{% endif %}</td>
+    <td><span class="kind">{{ 'Leave' if loop.first else ('Return' if stp.kind == 'yard' else ('Load' if stp.kind == 'pickup' else 'Offload')) }}</span> {{ stp.name }}</td>
+    <td class="muted">{{ stp.lane or '' }}{% if stp.customer %} · {{ stp.customer }}{% endif %}</td>
+    <td class="num">{{ '%.0f'|format(stp.miles) if stp.miles else '' }}</td>
+    <td class="num">{{ '%.0f'|format(stp.qty) if stp.kind == 'dropoff' and stp.qty else '' }}</td>
+    <td class="num">{{ stp.rev|money if stp.kind == 'dropoff' else '' }}</td></tr>
+  {% endfor %}
+  </table></div>
+  {% endif %}
+</div>
+{% endfor %}
+{% if editable %}<div class="bar" style="margin-top:12px"><button type="submit">Save driver names &amp; start times</button><span class="muted small">Typing a start time re-times that shift and re-checks its windows and hours.</span></div></form>{% endif %}
+
+{% if res.by_group and res.by_group|length > 1 %}
+<div class="card" style="margin-top:16px"><div class="head"><h2>By yard / group</h2></div>
+<div class="wrap"><table><tr><th>Group</th><th class="num">Slots used</th><th class="num">Loads</th><th class="num">Hours</th><th class="num">Loaded %</th><th class="num">Revenue</th><th class="num">Sub's share</th><th class="num">Profit</th></tr>
+{% for g in res.by_group %}<tr><td>{{ g.group }}</td><td class="num">{{ g.slots }}</td><td class="num">{{ g.loads }}</td><td class="num">{{ '%.1f'|format(g.hours) }}</td><td class="num">{{ '%.0f'|format(100 * g.loaded_miles / g.miles) if g.miles else 0 }}%</td><td class="num">{{ g.revenue|money }}</td><td class="num">{{ g.sub_pay|money if g.is_sub else '—' }}</td><td class="num"><b>{{ g.profit|money }}</b></td></tr>{% endfor %}
+</table></div></div>
+{% endif %}
+
+{% if res.unassigned %}
+<div class="card" style="margin-top:16px"><div class="head"><h2 style="color:var(--bad)">Not fitted ({{ res.unassigned|length }})</h2><span class="muted small">Didn't fit in the slots' hours, or wasn't worth the fuel. What one more driver would earn is roughly the profit column.</span></div>
+<div class="wrap"><table><tr><th>Lane</th><th>Customer</th><th class="num">Qty</th><th class="num">Revenue</th><th class="num">Profit before fuel</th></tr>
+{% for u in res.unassigned %}<tr><td>{{ u.lane }}</td><td class="muted">{{ u.customer }}</td><td class="num">{{ '%.0f'|format(u.qty) }}</td><td class="num">{{ u.rev|money }}</td><td class="num">{{ u.profit|money }}</td></tr>{% endfor %}
+</table></div></div>
+{% endif %}

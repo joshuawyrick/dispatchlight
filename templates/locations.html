@@ -1,0 +1,11 @@
+{% extends "base.html" %}{% block title %}Locations{% endblock %}{% block content %}
+<div class="topbar"><div><h1>Locations</h1><div class="muted">Pickups, drop-offs and your yards, with coordinates. Averages and site hours live here.</div></div><div class="actions"><a class="btn" href="/locations/new">+ Add location</a></div></div>
+<div class="card">
+<form class="bar" method="get" action="/locations" style="margin-bottom:10px"><input type="text" name="q" value="{{ q }}" placeholder="search…" style="width:220px">
+<select name="kind" onchange="this.form.submit()"><option value="">all types</option>{% for k in kinds %}<option value="{{ k }}" {% if kind == k %}selected{% endif %}>{{ k }}</option>{% endfor %}</select>
+<label class="chk"><input type="checkbox" name="show_inactive" value="1" {% if show_inactive %}checked{% endif %} onchange="this.form.submit()"> show inactive</label><button class="secondary small">Filter</button><span class="muted small">{{ rows|length }} shown</span></form>
+<div class="wrap"><table><tr><th>Name</th><th>Type</th><th class="num">Lat</th><th class="num">Lon</th><th class="num">Avg qty ({{ st.qty_unit }})</th><th class="num">Avg tons</th><th>Hours</th><th>Notes</th></tr>
+{% for l in rows %}<tr class="{{ 'dim' if not l.active }}"><td><a href="/locations/{{ l.id }}">{{ l.name }}</a></td><td><span class="pill {{ l.kind }}">{{ l.kind }}</span></td><td class="num">{{ '%.4f'|format(l.lat) }}</td><td class="num">{{ '%.4f'|format(l.lon) }}</td><td class="num">{{ '%.0f'|format(l.avg_qty) if l.avg_qty else '' }}</td><td class="num">{{ l.avg_weight_tons or '' }}</td><td class="muted">{% if l.open_time or l.close_time %}{{ l.open_time or '' }}–{{ l.close_time or '' }}{% endif %}</td><td class="muted">{{ l.notes or '' }}</td></tr>{% endfor %}
+{% if not rows %}<tr><td colspan="8" class="muted">No locations yet.</td></tr>{% endif %}
+</table></div></div>
+{% endblock %}

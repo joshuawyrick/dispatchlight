@@ -1,0 +1,12 @@
+{% extends "base.html" %}{% block title %}{{ p.name or 'Plan #' ~ p.id }}{% endblock %}{% block content %}
+<div class="topbar"><div><div class="crumb"><a href="/plans">Plans</a> › {{ p.plan_date }}</div><h1>{{ p.name or 'Plan #' ~ p.id }} <span class="muted" style="font-weight:500;font-size:15px">· {{ p.plan_date }}</span></h1>
+<div class="muted">Built {{ res.generated_at[:16].replace('T',' ') }} UTC · fuel ${{ '%.2f'|format(T.fuel_price or 0) }} · solver {{ st.solver_seconds|int }} s</div></div>
+<div class="actions">
+  <a class="btn secondary" href="/plan/{{ p.id }}/edit">Edit inputs</a>
+  <form method="post" action="/plan/{{ p.id }}/rebuild" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='Rebuilding…'"><button class="secondary">Rebuild</button></form>
+  <a class="btn secondary" href="/plan/{{ p.id }}/export.csv">CSV</a>
+  <a class="btn secondary" href="/plan/{{ p.id }}/print" target="_blank">Print</a>
+  <a class="btn" href="/plan/new?copy={{ p.id }}">Copy to new day</a>
+</div></div>
+{% set editable = True %}{% include "_plan_body.html" %}
+{% endblock %}

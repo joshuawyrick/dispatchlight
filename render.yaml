@@ -1,0 +1,27 @@
+# Render blueprint for the planner: one web service + one Postgres database.
+services:
+  - type: web
+    name: shift-planner
+    runtime: python
+    plan: starter
+    region: oregon
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: PLANNER_PASSWORD
+        sync: false
+      - key: GOOGLE_MAPS_API_KEY
+        sync: false
+      - key: GOOGLE_MAPS_BROWSER_KEY
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: shift-planner-db
+          property: connectionString
+
+databases:
+  - name: shift-planner-db
+    plan: basic-256mb
+    region: oregon

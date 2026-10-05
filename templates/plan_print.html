@@ -1,0 +1,9 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>{{ p.name or 'Plan' }} · {{ p.plan_date }}</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="/static/app.css?v={{ css_v }}">
+<style>body{background:#fff} .main{padding:24px 28px} .tiles{grid-template-columns:repeat(4,1fr)} @media print{.noprint{display:none}}</style></head>
+<body><main class="main">
+<div class="topbar"><div>{% if company.logo %}<img src="/company/logo" class="logo-preview" alt=""><br>{% endif %}<h1>{{ company.name }} — dispatch plan {{ p.plan_date }}</h1><div class="muted">{{ p.name or '' }} · built {{ res.generated_at[:16].replace('T',' ') }} UTC{% if company.phone %} · {{ company.phone }}{% endif %}</div></div>
+<div class="actions noprint"><button onclick="window.print()">Print</button> <a class="btn secondary" href="/plan/{{ p.id }}">Back</a></div></div>
+{% set editable = False %}{% include "_plan_body.html" %}
+<p class="muted small" style="margin-top:18px">Times are estimates at {{ st.avg_speed_mph|int }} mph average with {{ st.load_minutes|int }}/{{ st.unload_minutes|int }} minute stops. Route selection remains the driver's responsibility.</p>
+</main></body></html>

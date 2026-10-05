@@ -1,0 +1,21 @@
+{% extends "base.html" %}{% block title %}{{ 'Edit lane' if lane else 'New lane' }}{% endblock %}{% block content %}
+<div class="topbar"><div><div class="crumb"><a href="/lanes">Lanes</a> › {{ 'Edit' if lane else 'New' }}</div><h1>{{ (lane.pickup.name ~ ' → ' ~ lane.dropoff.name) if lane else 'New lane' }}</h1></div></div>
+<div class="card"><form method="post" action="/lanes/save" class="form">
+{% if lane %}<input type="hidden" name="id" value="{{ lane.id }}">{% endif %}
+<label>Pickup</label><select name="pickup_id" required>{% for l in pickups %}<option value="{{ l.id }}" {% if lane and lane.pickup_id == l.id %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select>
+<label>Drop-off</label><select name="dropoff_id" required>{% for l in dropoffs %}<option value="{{ l.id }}" {% if lane and lane.dropoff_id == l.id %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select>
+<label>Customer</label><input type="text" name="customer" value="{{ lane.customer if lane and lane.customer else '' }}">
+<label>Product</label><input type="text" name="product" value="{{ lane.product if lane and lane.product else '' }}" placeholder="crude oil, diesel, aggregate…">
+<label>Billed</label><div class="bar"><select name="rate_basis">{% for k, v in bases %}<option value="{{ k }}" {% if lane and lane.rate_basis == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select> $<input type="number" step="0.0001" name="rate" class="w110" value="{{ lane.rate if lane and lane.rate is not none else '' }}"></div>
+<div class="hint">Per unit uses the pickup's average quantity (unit: {{ st.qty_unit }}); per mile uses the loaded miles from the map; per hour uses drive + load/unload time; per ton uses the load weight.</div>
+<label>Minimum quantity</label><input type="number" step="any" name="min_qty" class="w110" value="{{ lane.min_qty if lane and lane.min_qty is not none else '' }}" placeholder="{{ st.min_qty or '' }}">
+<div class="hint">Billing floor for per-unit lanes. Blank = company default.</div>
+<label>Quantity per load</label><input type="number" step="any" name="qty_override" class="w110" value="{{ lane.qty_override if lane and lane.qty_override else '' }}" placeholder="pickup avg">
+<label>Load weight (tons)</label><input type="number" step="any" name="weight_tons" class="w110" value="{{ lane.weight_tons if lane and lane.weight_tons else '' }}" placeholder="{{ st.default_weight_tons }}">
+<label>Driver pay</label><div class="bar"><select name="pay_basis">{% for k, v in pays %}<option value="{{ k }}" {% if lane and lane.pay_basis == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select> <input type="number" step="0.0001" name="pay_rate" class="w110" value="{{ lane.pay_rate if lane and lane.pay_rate is not none else '' }}"></div>
+<div class="hint">"% of load revenue" is the number before the % sign (23.5 = 23.5%). Others are dollars per unit / mile / hour / load.</div>
+<label>Active</label><input type="checkbox" name="active" value="1" {% if not lane or lane.active %}checked{% endif %}>
+<label>Notes</label><textarea name="notes" rows="2">{{ lane.notes if lane and lane.notes else '' }}</textarea>
+<span></span><div class="bar"><button type="submit">Save lane</button><a class="btn secondary" href="/lanes">Back</a></div>
+</form></div>
+{% endblock %}

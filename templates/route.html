@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}Route {{ o.name }} → {{ d.name }}{% endblock %}
+{% block content %}
+<div class="topbar">
+  <div>
+    <div class="crumb"><a href="/mileage?q={{ o.name|urlencode }}">Mileage &amp; routes</a> › approve a leg</div>
+    <h1>{{ o.name }} <span class="muted">→</span> {{ d.name }}</h1>
+    <div class="muted">{{ o.kind }} → {{ d.kind }}{% if back %} · <a href="{{ back }}">back</a>{% endif %}</div>
+  </div>
+  <div class="actions">
+    {% if dist and dist.approved %}
+      <span class="pill ok">APPROVED {{ dist.approved_at.strftime('%m/%d/%Y') if dist.approved_at else '' }}</span>
+      <div class="muted">{{ '%.1f'|format(dist.miles) }} mi · {{ 'custom route (dragged)' if dist.route_kind == 'custom' else ('Google default' if dist.route_kind == 'google-default' else 'manual miles') }}</div>
+    {% else %}
+      <span class="pill warn">NOT REVIEWED</span>
+      <div class="muted">engine currently uses {{ '%.1f'|format(dist.miles) if dist and dist.miles else '?' }} mi ({{ dist.source if dist else 'no data' }})</div>
+    {% endif %}
+  </div>
+</div>
+
+{% if not browser_key %}
+<div class="notice" style="margin-top:14px">
+  <b>Map not set up yet.</b> Add a browser key for Google Maps as <code>GOOGLE_MAPS_BROWSER_KEY</code> under Environment in Render
+  (Maps JavaScript API + Directions API, restricted to this site's address). Until then you can still type approved miles below.
+</div>
+{% endif %}
+
+<div class="route-grid">
+  <div id="map" class="route-map">{% if not browser_key %}<div class="muted" style="padding:30px;text-align:center">Map unavailable until the browser key is added.</div>{% endif %}</div>
+
+  <div class="route-panel">
+    <div class="card">
+      <h2>Route shown on the map</h2>
+      <div class="route-big"><span id="miles">–</span> mi <span class="muted">·</span> <span id="mins">–</span> min</div>
+      <div class="muted" id="viacount">Drag the blue line onto the road you want. It snaps like Google Maps.</div>
+      <div class="muted small" style="margin-top:4px">Satellite with road labels is the default; the map remembers your choice.</div>
+      <div class="muted small" style="margin-top:6px">Engine time at {{ speed }} mph: <span id="engmins">–</span> min (Google's own estimate is shown for reference only)</div>
+    </div>
+
+    <form method="post" action="/route/{{ o.id }}/{{ d.id }}/approve" id="approveForm" class="card" style="margin-top:12px">
+      <input type="hidden" name="miles" id="f_miles"><input type="hidden" name="minutes" id="f_mins">
+      <input type="hidden" name="via" id="f_via"><input type="hidden" name="polyline" id="f_poly"><input type="hidden" name="kind" id="f_kind" value="google-default">
+      <input type="hidden" name="rev_miles" id="f_rmiles"><input type="hidden" name="rev_minutes" id="f_rmins"><input type="hidden" name="rev_via" id="f_rvia"><input type="hidden" name="rev_polyline" id="f_rpoly">
+      <input type="hidden" name="back" value="{{ back or '' }}">
+      <label class="chk"><input type="checkbox" name="reverse" id="revchk" value="1" checked> Also approve the reverse direction ({{ d.name[:22] }} → {{ o.name[:22] }}) using the same roads
+        <span class="muted" id="revinfo"></span></label>
+      <label class="chk">Note <input type="text" name="note" placeholder="e.g. use Hwy 33, avoid canal road" value="{{ dist.override_note if dist and dist.override_note else '' }}" style="min-width:220px"></label>
+      <div class="bar" style="margin-top:8px">
+        <button type="submit" id="approveBtn" {% if not browser_key %}disabled{% endif %}>Approve this route</button>
+        <button type="button" class="secondary" id="resetBtn" {% if not browser_key %}disabled{% endif %}>Reset to Google's default</button>
+      </div>
+    </form>
+
+    <details class="card" style="margin-top:12px">
+      <summary>Type the miles instead (no map)</summary>
+      <form method="post" action="/route/{{ o.id }}/{{ d.id }}/manual" class="bar" style="margin-top:8px">
+        <input type="hidden" name="back" value="{{ back or '' }}">
+        <label>miles <input type="number" step="0.1" name="miles" class="w80" value="{{ dist.override_miles if dist and dist.override_miles else '' }}"></label>
+        <label>minutes <input type="number" step="1" name="minutes" class="w80" value="{{ dist.override_minutes if dist and dist.override_minutes else '' }}"></label>
+        <label class="chk"><input type="checkbox" name="reverse" value="1" checked> reverse too</label>
+        <button type="submit" class="secondary small">Save as approved</button>
+      </form>
+    </details>
+
+    {% if dist and dist.approved %}
+    <form method="post" action="/route/{{ o.id }}/{{ d.id }}/unapprove" class="card" style="margin-top:12px" onsubmit="return confirm('Clear the approval for this leg? The engine will go back to Google\'s mileage.')">
+      <input type="hidden" name="back" value="{{ back or '' }}">
+      <button type="submit" class="secondary small">Clear approval</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+{% if browser_key %}
+<script>
+const ORIGIN = {lat: {{ o.lat }}, lng: {{ o.lon }}}, DEST = {lat: {{ d.lat }}, lng: {{ d.lon }}};
+const SAVED_VIA = {{ via_json|safe }};      // [[lat,lng],...] from an earlier approval, or []
+const SPEED = {{ speed }};
+let map, svc, renderer, current = null;
+
+function initMap() {
+  let startType = 'hybrid';                                   // satellite + road labels by default
+  try { startType = localStorage.getItem('routeMapType') || 'hybrid'; } catch (e) {}
+  map = new google.maps.Map(document.getElementById('map'), {zoom: 9, center: ORIGIN, mapTypeId: startType, streetViewControl: false,
+    mapTypeControl: true, mapTypeControlOptions: {style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR, position: google.maps.ControlPosition.TOP_RIGHT,
+    mapTypeIds: ['roadmap', 'hybrid', 'terrain']}});
+  map.addListener('maptypeid_changed', () => { try { localStorage.setItem('routeMapType', map.getMapTypeId()); } catch (e) {} });
+  svc = new google.maps.DirectionsService();
+  renderer = new google.maps.DirectionsRenderer({map, draggable: true, suppressMarkers: false});
+  renderer.addListener('directions_changed', () => { current = renderer.getDirections(); showRoute(); });
+  route(SAVED_VIA);
+  document.getElementById('resetBtn').onclick = () => route([]);
+  document.getElementById('approveForm').onsubmit = onApprove;
+}
+
+function route(via) {
+  const waypoints = (via || []).map(p => ({location: new google.maps.LatLng(p[0], p[1]), stopover: false}));
+  svc.route({origin: ORIGIN, destination: DEST, waypoints, travelMode: google.maps.TravelMode.DRIVING, provideRouteAlternatives: false},
+    (res, status) => {
+      if (status !== 'OK') { document.getElementById('viacount').textContent = 'Google could not route this leg: ' + status; return; }
+      renderer.setDirections(res); current = res; showRoute();
+    });
+}
+
+function summarize(res) {
+  const r = res.routes[0]; let meters = 0, secs = 0, via = [];
+  r.legs.forEach(l => { meters += l.distance.value; secs += l.duration.value; (l.via_waypoints || []).forEach(v => via.push([+v.lat().toFixed(6), +v.lng().toFixed(6)])); });
+  const poly = r.overview_polyline && (typeof r.overview_polyline === 'string' ? r.overview_polyline : r.overview_polyline.points) || google.maps.geometry.encoding.encodePath(r.overview_path);
+  const steps = []; r.legs.forEach(l => (l.steps || []).forEach(st => steps.push({instruction: (st.instructions || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(), miles: +(st.distance.value / 1609.344).toFixed(1)})));
+  return {miles: +(meters / 1609.344).toFixed(1), mins: Math.round(secs / 60), via, poly, steps};
+}
+
+function showRoute() {
+  if (!current) return;
+  const s = summarize(current);
+  document.getElementById('miles').textContent = s.miles; document.getElementById('mins').textContent = s.mins;
+  document.getElementById('engmins').textContent = Math.round(s.miles / SPEED * 60);
+  document.getElementById('viacount').textContent = s.via.length ? `Custom route with ${s.via.length} via point${s.via.length > 1 ? 's' : ''} — drag again to adjust, or Reset.` : "Google's default route — drag the blue line onto the road you want.";
+  document.getElementById('f_kind').value = s.via.length ? 'custom' : 'google-default';
+}
+
+function onApprove(e) {
+  e.preventDefault();
+  if (!current) return false;
+  const s = summarize(current);
+  document.getElementById('f_miles').value = s.miles; document.getElementById('f_mins').value = s.mins;
+  document.getElementById('f_via').value = JSON.stringify(s.via); document.getElementById('f_poly').value = s.poly;
+  const form = document.getElementById('approveForm'); const btn = document.getElementById('approveBtn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  if (!document.getElementById('revchk').checked) { form.submit(); return false; }
+  // compute the reverse direction through the same via points (reversed) so its miles are real, not assumed
+  const rv = s.via.slice().reverse().map(p => ({location: new google.maps.LatLng(p[0], p[1]), stopover: false}));
+  svc.route({origin: DEST, destination: ORIGIN, waypoints: rv, travelMode: google.maps.TravelMode.DRIVING}, (res, status) => {
+    if (status === 'OK') { const r = summarize(res); document.getElementById('f_rmiles').value = r.miles; document.getElementById('f_rmins').value = r.mins;
+      document.getElementById('f_rvia').value = JSON.stringify(s.via.slice().reverse()); document.getElementById('f_rpoly').value = r.poly;
+      }
+    form.submit();
+  });
+  return false;
+}
+window.initMap = initMap;
+</script>
+<script async src="https://maps.googleapis.com/maps/api/js?key={{ browser_key }}&libraries=geometry&callback=initMap"></script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,8 @@
+{% extends "base.html" %}{% block title %}Plans{% endblock %}{% block content %}
+<div class="topbar"><div><h1>Plans</h1><div class="muted">Every plan you've built or saved. Copy one to reuse its loads and slots for another day.</div></div><div class="actions"><a class="btn" href="/plan/new">+ New plan</a></div></div>
+<div class="card"><div class="wrap"><table><tr><th>Date</th><th>Name</th><th>Summary</th><th>Status</th><th>Updated</th><th></th></tr>
+{% for p in rows %}<tr><td>{{ p.plan_date }}</td><td><a href="/plan/{{ p.id }}">{{ p.name or 'Plan #' ~ p.id }}</a></td><td class="muted">{{ p.summary or '' }}</td><td><span class="pill {{ 'ok' if p.status == 'built' else '' }}">{{ p.status }}</span></td><td class="muted">{{ p.updated_at.strftime('%m/%d %H:%M') if p.updated_at else '' }}</td>
+<td class="bar"><a class="btn secondary small" href="/plan/{{ p.id }}/edit">Edit inputs</a><a class="btn secondary small" href="/plan/new?copy={{ p.id }}">Copy</a><form method="post" action="/plan/{{ p.id }}/delete" onsubmit="return confirm('Delete this plan?')"><button class="danger small">Delete</button></form></td></tr>{% endfor %}
+{% if not rows %}<tr><td colspan="6" class="muted">No plans yet.</td></tr>{% endif %}
+</table></div></div>
+{% endblock %}

@@ -1,0 +1,9 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sign in · {{ product }}</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="/static/app.css?v={{ css_v }}"></head>
+<body style="display:grid;place-items:center;min-height:100vh;background:var(--side)">
+<div class="card" style="width:360px;padding:28px">
+  <div class="brand" style="padding:0 0 18px;border:none"><div class="mark">{{ product[:1] }}</div><div><div class="name" style="color:var(--text)">{{ product }}</div><div class="sub">Sign in</div></div></div>
+  {% if no_pw %}<p class="muted">No password is set on this server yet. <a href="/">Continue</a></p>{% else %}
+  {% if msg %}<div class="notice">{{ msg }}</div>{% endif %}
+  <form method="post" action="/login"><div class="form" style="grid-template-columns:1fr"><input type="password" name="password" placeholder="Team password" autofocus style="width:100%"><button type="submit">Sign in</button></div></form>{% endif %}
+</div></body></html>

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}{% endblock %} · {{ product }}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/app.css?v={{ css_v }}">
+</head>
+<body>
+<div class="shell">
+<aside class="side">
+  <div class="brand">
+    {% if company.logo %}<img src="/company/logo" alt="" style="width:32px;height:32px;border-radius:9px;object-fit:cover">{% else %}<div class="mark">{{ (company.name or 'P')[:1] }}</div>{% endif %}
+    <div><div class="name">{{ company.name }}</div><div class="sub">{{ product }}</div></div>
+  </div>
+  {% set path = request.url.path %}
+  <nav class="nav">
+    <a href="/" class="{{ 'on' if path == '/' }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Dashboard</a>
+    <a href="/plan/new" class="{{ 'on' if path.startswith('/plan/new') }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>New plan</a>
+    <a href="/plans" class="{{ 'on' if path.startswith('/plans') or (path.startswith('/plan/') and not path.startswith('/plan/new')) }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Plans</a>
+    <div class="sec">Setup</div>
+    <a href="/lanes" class="{{ 'on' if path.startswith('/lanes') }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17l6-10 4 6 6-8"/></svg>Lanes &amp; rates</a>
+    <a href="/locations" class="{{ 'on' if path.startswith('/locations') }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.2-7-11a7 7 0 0114 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Locations</a>
+    <a href="/mileage" class="{{ 'on' if path.startswith('/mileage') or path.startswith('/route') }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8 17c5 0 5-10 10-10"/></svg>Mileage &amp; routes</a>
+    <a href="/import" class="{{ 'on' if path.startswith('/import') }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v3h16v-3"/></svg>Import data</a>
+    <a href="/settings" class="{{ 'on' if path.startswith('/settings') }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>Settings</a>
+  </nav>
+  <div class="foot">{{ product }}{% if not no_pw %} · <a href="/logout">Log out</a>{% endif %}</div>
+</aside>
+<main class="main">
+  {% if msg %}<div class="flash">{{ msg }}</div>{% endif %}
+  {% block content %}{% endblock %}
+</main>
+</div>
+</body>
+</html>

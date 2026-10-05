@@ -1,0 +1,16 @@
+{% extends "base.html" %}{% block title %}Lanes{% endblock %}{% block content %}
+<div class="topbar"><div><h1>Lanes &amp; rates</h1><div class="muted">A lane is a pickup → drop-off with how it's billed and how the driver is paid. The planner values every load from these.</div></div>
+<div class="actions"><a class="btn" href="/lanes/new">+ Add lane</a></div></div>
+<div class="card">
+<form class="bar" method="get" action="/lanes" style="margin-bottom:10px"><input type="text" name="q" value="{{ q }}" placeholder="search pickup, drop-off, customer…" style="width:260px"><label class="chk"><input type="checkbox" name="show_inactive" value="1" {% if show_inactive %}checked{% endif %} onchange="this.form.submit()"> show inactive</label><button class="secondary small">Filter</button><span class="muted small">{{ rows|length }} lanes</span></form>
+<div class="wrap"><table>
+<tr><th>Pickup</th><th>Drop-off</th><th>Customer</th><th>Rate</th><th>Driver pay</th><th class="num">Loaded mi</th><th class="num">Qty/load</th><th class="num">Revenue/load</th><th class="num">Pay/load</th><th class="num">Surcharge</th></tr>
+{% for l in rows %}{% set pv = previews[l.id] %}
+<tr class="{{ 'dim' if not l.active }}"><td><a href="/lanes/{{ l.id }}">{{ l.pickup.name }}</a></td><td>{{ l.dropoff.name }}</td><td class="muted">{{ l.customer or '' }}</td>
+<td>{% if l.rate %}${{ '%.2f'|format(l.rate) }} <span class="muted small">{{ bases[l.rate_basis or 'unit'] }}</span>{% else %}<span class="pill bad">no rate</span>{% endif %}</td>
+<td class="muted">{% if l.pay_rate %}{{ ('%.1f'|format(l.pay_rate) ~ '%') if l.pay_basis == 'pct' else ('$' ~ '%.3f'|format(l.pay_rate)) }} <span class="small">{{ pays[l.pay_basis or 'pct'] }}</span>{% endif %}</td>
+<td class="num">{{ '%.0f'|format(pv.miles) }}</td><td class="num">{{ '%.0f'|format(pv.qty) }}</td><td class="num">{{ pv.rev|money }}</td><td class="num muted">{{ pv.pay|money }}</td><td class="num muted">{{ pv.fsc|money }}</td></tr>
+{% endfor %}
+{% if not rows %}<tr><td colspan="10" class="muted">No lanes yet. Add one, or <a href="/import">import a spreadsheet</a>.</td></tr>{% endif %}
+</table></div></div>
+{% endblock %}

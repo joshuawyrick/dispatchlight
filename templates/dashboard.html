@@ -1,0 +1,17 @@
+{% extends "base.html" %}{% block title %}Dashboard{% endblock %}{% block content %}
+<div class="topbar"><div><div class="crumb">{{ company.name }}</div><h1>Dashboard</h1><div class="muted">Plan the most profitable set of shifts for a day from the loads you have and the drivers you can field.</div></div>
+  <div class="actions"><a class="btn" href="/plan/new">+ New plan</a></div></div>
+{% if todo %}<div class="notice"><b>Before the first plan:</b><ul style="margin:6px 0 0 18px;padding:0">{% for t in todo %}<li>{{ t }}</li>{% endfor %}</ul></div>{% endif %}
+<div class="tiles">
+  <div class="tile"><div class="v">{{ lanes_n }}</div><div class="l">Active lanes</div></div>
+  <div class="tile"><div class="v">{{ counts.pickup + counts.both }}</div><div class="l">Pickups · {{ counts.dropoff + counts.both }} drop-offs · {{ counts.yard }} yards</div></div>
+  <div class="tile"><div class="v {{ 'ok' if not cov.missing else 'bad' }}">{{ cov.have }}<span class="muted" style="font-size:14px">/{{ cov.needed }}</span></div><div class="l">Mileage pairs with road miles</div></div>
+  <div class="tile"><div class="v">{{ '%.2f'|format(fuel.price) if fuel and fuel.price else '—' }}</div><div class="l">{{ fuel.name if fuel else 'Fuel' }} $/{{ fuel.unit if fuel else 'gal' }} · surcharge {{ '%.1f'|format(fsc_pct) }}%</div></div>
+  <div class="tile"><div class="v">{{ st.target_per_hour|money }}</div><div class="l">Target gross per shift hour</div></div>
+</div>
+<div class="card"><div class="head"><h2>Recent plans</h2><a href="/plans" class="small">All plans</a></div>
+<div class="wrap"><table><tr><th>Date</th><th>Name</th><th>Summary</th><th>Status</th><th></th></tr>
+{% for p in plans %}<tr><td>{{ p.plan_date }}</td><td><a href="/plan/{{ p.id }}">{{ p.name or 'Plan #' ~ p.id }}</a></td><td class="muted">{{ p.summary or '' }}</td><td><span class="pill {{ 'ok' if p.status == 'built' else '' }}">{{ p.status }}</span></td><td><a class="btn secondary small" href="/plan/new?copy={{ p.id }}">Copy</a></td></tr>{% endfor %}
+{% if not plans %}<tr><td colspan="5" class="muted">No plans yet — click <a href="/plan/new">New plan</a>.</td></tr>{% endif %}
+</table></div></div>
+{% endblock %}

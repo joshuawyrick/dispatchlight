@@ -1,0 +1,20 @@
+{% extends "base.html" %}{% block title %}{{ loc.name if loc else 'New location' }}{% endblock %}{% block content %}
+<div class="topbar"><div><div class="crumb"><a href="/locations">Locations</a> › {{ 'Edit' if loc else 'New' }}</div><h1>{{ loc.name if loc else 'New location' }}</h1></div></div>
+<div class="card"><form method="post" action="/locations/save" class="form">
+{% if loc %}<input type="hidden" name="id" value="{{ loc.id }}">{% endif %}
+<label>Name</label><input type="text" name="name" required value="{{ loc.name if loc else '' }}">
+<label>Type</label><select name="kind">{% for k in kinds %}<option value="{{ k }}" {% if loc and loc.kind == k %}selected{% endif %}>{{ k }}</option>{% endfor %}</select>
+<label>Latitude</label><input type="number" step="any" name="lat" required value="{{ loc.lat if loc else '' }}" class="w160">
+<label>Longitude</label><input type="number" step="any" name="lon" required value="{{ loc.lon if loc else '' }}" class="w160">
+<label>Average quantity per load</label><input type="number" step="any" name="avg_qty" class="w110" value="{{ loc.avg_qty if loc and loc.avg_qty else '' }}" placeholder="{{ st.default_qty }}">
+<div class="hint">In {{ st.qty_unit }}. Used to value every load picked up here (floored at the minimum billable quantity).</div>
+<label>Average weight (tons)</label><input type="number" step="any" name="avg_weight_tons" class="w110" value="{{ loc.avg_weight_tons if loc and loc.avg_weight_tons else '' }}">
+<label>Minutes to load / unload</label><div class="bar"><input type="number" name="load_minutes" class="w80" value="{{ loc.load_minutes if loc and loc.load_minutes else '' }}" placeholder="{{ st.load_minutes|int }}"> / <input type="number" name="unload_minutes" class="w80" value="{{ loc.unload_minutes if loc and loc.unload_minutes else '' }}" placeholder="{{ st.unload_minutes|int }}"></div>
+<label>Open hours</label><div class="bar"><input type="time" name="open_time" value="{{ loc.open_time if loc and loc.open_time else '' }}"> – <input type="time" name="close_time" value="{{ loc.close_time if loc and loc.close_time else '' }}"><span class="muted small">blank = any time</span></div>
+<label>Active</label><input type="checkbox" name="active" value="1" {% if not loc or loc.active %}checked{% endif %}>
+<label>Notes</label><textarea name="notes" rows="2">{{ loc.notes if loc and loc.notes else '' }}</textarea>
+<span></span><div class="bar"><button type="submit">Save</button><a class="btn secondary" href="/locations">Back</a></div>
+</form></div>
+{% if loc and lanes %}<div class="card"><div class="head"><h2>Lanes using this location</h2></div><div class="wrap"><table><tr><th>Pickup</th><th>Drop-off</th><th>Customer</th><th class="num">Rate</th></tr>
+{% for l in lanes %}<tr><td><a href="/lanes/{{ l.id }}">{{ l.pickup.name }}</a></td><td>{{ l.dropoff.name }}</td><td class="muted">{{ l.customer or '' }}</td><td class="num">{{ ('$%.2f'|format(l.rate)) if l.rate else '—' }}</td></tr>{% endfor %}</table></div></div>{% endif %}
+{% endblock %}

@@ -1,0 +1,81 @@
+{% extends "base.html" %}{% block title %}{{ 'Edit plan' if plan_id else 'New plan' }}{% endblock %}{% block content %}
+<div class="topbar"><div><div class="crumb"><a href="/plans">Plans</a> › {{ 'Edit inputs' if plan_id else 'New plan' }}</div><h1>{{ 'Edit plan inputs' if plan_id else 'New plan' }}</h1>
+<div class="muted">Two lists: the loads to move and the drivers you can field. Build gives the most profitable set of shifts.</div></div></div>
+
+<form method="post" action="/plan/build" id="planForm">
+{% if plan_id %}<input type="hidden" name="plan_id" value="{{ plan_id }}">{% endif %}
+<div class="card">
+  <div class="bar"><label>Plan date <input type="date" name="plan_date" value="{{ pdate }}"></label>
+  <label>Name <input type="text" name="name" value="{{ name }}" placeholder="optional, e.g. Tuesday base plan" style="width:260px"></label></div>
+</div>
+
+<div class="card">
+  <div class="head"><h2>1 · Loads to haul</h2><span class="muted small">Revenue per load comes from the lane's rate and the pickup's average quantity.</span></div>
+  <div class="rows-editor loads-editor" id="loads">
+    <div class="row h"><span>Lane</span><span>Loads</span><span>Qty / load</span><span></span></div>
+    {% for ld in inputs.loads %}
+    <div class="row"><select name="ld_lane">{% for ln in lanes %}<option value="{{ ln.id }}" {% if ln.id == ld.lane_id %}selected{% endif %}>{{ ln.pickup.name }} → {{ ln.dropoff.name }}{% if ln.customer %} ({{ ln.customer }}){% endif %} · {{ previews[ln.id].rev|money }}</option>{% endfor %}</select>
+      <input type="number" name="ld_count" min="1" value="{{ ld.count }}"><input type="number" step="any" name="ld_qty" value="{{ ld.qty if ld.qty else '' }}" placeholder="avg" title="leave blank to use the pickup's average"><button type="button" class="x" onclick="this.closest('.row').remove()">✕</button></div>
+    {% endfor %}
+  </div>
+  <div class="bar" style="margin-top:10px">
+    <select id="laneAdd" style="min-width:420px"><option value="">— choose a lane —</option>{% for ln in lanes %}<option value="{{ ln.id }}">{{ ln.pickup.name }} → {{ ln.dropoff.name }}{% if ln.customer %} ({{ ln.customer }}){% endif %} · {{ previews[ln.id].rev|money }}/load · {{ '%.0f'|format(previews[ln.id].qty) }} {{ st.qty_unit }} · {{ '%.0f'|format(previews[ln.id].miles) }} mi</option>{% endfor %}</select>
+    <input type="number" id="laneCount" min="1" value="1" class="w60"> <button type="button" class="secondary" onclick="addLoad()">Add loads</button>
+    <input type="text" id="laneFilter" placeholder="type to filter lanes…" style="width:200px" oninput="filterLanes(this.value)">
+  </div>
+</div>
+
+<div class="card">
+  <div class="head"><h2>2 · Drivers available</h2><span class="muted small">Full shifts use your hours-of-service limits ({{ st.max_drive_hours|int }} drive / {{ st.max_duty_hours|int }} on-duty). Give a group a lower max for partial shifts.</span></div>
+  <div class="rows-editor groups-editor" id="groups">
+    <div class="row h"><span>Yard</span><span>Drivers</span><span>Max on-duty h</span><span>Max drive h</span><span>Fuel</span><span>Type</span><span>Sub keeps %</span><span></span></div>
+  </div>
+  <div class="bar" style="margin-top:10px"><button type="button" class="secondary" onclick="addGroup('company')">+ Company drivers</button><button type="button" class="secondary" onclick="addGroup('sub')">+ Sub-hauler trucks</button>
+  <span class="muted small">Company slots fill first, then subs from the lowest share up. A sub keeps its share of the load revenue{% if st.fsc_to_subs %} plus the whole surcharge{% endif %}.</span></div>
+</div>
+
+<div class="bar" style="margin-top:16px">
+  <button type="submit" name="action" value="build" onclick="this.disabled=true;this.textContent='Building… about {{ st.solver_seconds|int }} s';this.form.submit()">Build the plan</button>
+  <button type="submit" name="action" value="save" class="secondary">Save inputs only</button>
+  <span class="muted">Takes about {{ st.solver_seconds|int }} seconds (Settings → Optimizer).</span>
+</div>
+</form>
+
+<template id="groupTpl">
+<div class="row">
+  <select name="g_yard">{% for y in yards %}<option value="{{ y.id }}">{{ y.name }}</option>{% endfor %}</select>
+  <input type="number" name="g_count" min="1" value="1">
+  <input type="number" name="g_duty" step="0.5" placeholder="{{ st.max_duty_hours|int }}">
+  <input type="number" name="g_drive" step="0.5" placeholder="{{ st.max_drive_hours|int }}">
+  <select name="g_fuel"><option value="">default fuel</option>{% for ft in fuels %}<option value="{{ ft.id }}">{{ ft.name }}</option>{% endfor %}</select>
+  <select name="g_kind" onchange="this.closest('.row').querySelector('[name=g_share]').disabled = this.value !== 'sub'"><option value="company">Company</option><option value="sub">Sub-hauler</option></select>
+  <input type="number" name="g_share" step="0.5" min="1" max="100" placeholder="75" disabled>
+  <input type="hidden" name="g_label" value="">
+  <button type="button" class="x" onclick="this.closest('.row').remove()">✕</button>
+</div>
+</template>
+<script>
+const LANES = {{ lanes_json|safe }};
+function addLoad() {
+  const sel = document.getElementById('laneAdd'); if (!sel.value) return;
+  const n = document.getElementById('laneCount').value || 1;
+  const row = document.createElement('div'); row.className = 'row';
+  row.innerHTML = `<select name="ld_lane">${LANES.map(l => `<option value="${l.id}" ${l.id == sel.value ? 'selected' : ''}>${l.label} · $${l.rev.toLocaleString()}</option>`).join('')}</select>
+    <input type="number" name="ld_count" min="1" value="${n}"><input type="number" step="any" name="ld_qty" placeholder="avg" title="leave blank to use the pickup's average"><button type="button" class="x" onclick="this.closest('.row').remove()">✕</button>`;
+  document.getElementById('loads').appendChild(row); sel.value = ''; document.getElementById('laneCount').value = 1;
+}
+function filterLanes(q) {
+  q = q.toLowerCase();
+  for (const o of document.getElementById('laneAdd').options) { if (!o.value) continue; o.hidden = q && !o.text.toLowerCase().includes(q); }
+}
+function addGroup(kind, vals) {
+  const row = document.getElementById('groupTpl').content.firstElementChild.cloneNode(true);
+  const k = row.querySelector('[name=g_kind]'); k.value = kind; row.querySelector('[name=g_share]').disabled = kind !== 'sub';
+  if (vals) { for (const [n, v] of Object.entries(vals)) { const el = row.querySelector(`[name=g_${n}]`); if (el && v !== null && v !== undefined) el.value = v; } row.querySelector('[name=g_share]').disabled = vals.kind !== 'sub'; }
+  document.getElementById('groups').appendChild(row);
+}
+{% for g in inputs.groups %}addGroup('{{ g.kind }}', {yard: {{ g.yard_id }}, count: {{ g.count }}, duty: {{ g.max_duty if g.max_duty is not none else 'null' }}, drive: {{ g.max_drive if g.max_drive is not none else 'null' }}, fuel: {{ g.fuel_id if g.fuel_id else "''" }}, kind: '{{ g.kind }}', share: {{ g.share if g.share is not none else 'null' }}, label: {{ (g.label or '')|tojson }}});
+{% endfor %}
+{% if not inputs.groups %}{% for y in yards %}{% if loop.first %}addGroup('company', {yard: {{ y.id }}, count: 5});{% endif %}{% endfor %}{% endif %}
+</script>
+{% endblock %}

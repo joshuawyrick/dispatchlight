@@ -1,0 +1,44 @@
+{% extends "base.html" %}{% block title %}Settings{% endblock %}{% block content %}
+<div class="topbar"><div><h1>Settings</h1><div class="muted">Company details, fuel, hours of service, surcharge rule and optimizer behavior.</div></div></div>
+
+<div class="card" id="company"><div class="head"><h2>Company</h2></div>
+<form method="post" action="/settings/company" enctype="multipart/form-data" class="form">
+  <label>Company name</label><input type="text" name="name" value="{{ company.name }}" required>
+  <label>Address</label><input type="text" name="address" value="{{ company.address or '' }}">
+  <label>Phone</label><input type="text" name="phone" value="{{ company.phone or '' }}">
+  <label>Email</label><input type="email" name="email" value="{{ company.email or '' }}">
+  <label>Website</label><input type="text" name="website" value="{{ company.website or '' }}">
+  <label>Logo</label><div class="bar">{% if company.logo %}<img src="/company/logo" class="logo-preview" alt="logo"> <label class="chk"><input type="checkbox" name="remove_logo" value="1"> remove</label>{% endif %}<input type="file" name="logo" accept="image/*"></div>
+  <div class="hint">PNG or JPG, under 2 MB. Shown in the sidebar and on printed plans.</div>
+  <span></span><button type="submit">Save company</button>
+</form></div>
+
+<div class="card" id="fuel"><div class="head"><h2>Fuel types</h2><span class="muted small">Fleet average economy and today's price. Slot groups pick a fuel; the default applies otherwise.</span></div>
+<div class="wrap"><table><tr><th>Name</th><th>Kind</th><th class="num">Economy</th><th class="num">Price</th><th>Cost / mile</th><th>Default</th><th></th></tr>
+{% for ft in fuels %}<tr><form method="post" action="/settings/fuel"><input type="hidden" name="id" value="{{ ft.id }}">
+<td><input type="text" name="name" value="{{ ft.name }}" class="w160"></td>
+<td><select name="kind">{% for k, v in fuel_kinds %}<option value="{{ k }}" {% if ft.kind == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></td>
+<td class="num"><input type="number" step="any" name="economy" value="{{ ft.economy or '' }}" class="w80"> <span class="muted small">mi/{{ ft.unit }}</span></td>
+<td class="num">$<input type="number" step="any" name="price" value="{{ ft.price or '' }}" class="w80"> <span class="muted small">/{{ ft.unit }}</span></td>
+<td class="num">${{ '%.3f'|format(ft.cost_per_mile()) }}</td>
+<td><label class="chk"><input type="checkbox" name="is_default" value="1" {% if ft.is_default %}checked{% endif %}> default</label></td>
+<td class="bar"><button class="small">Save</button>{% if not ft.is_default %}<button class="danger small" name="action" value="delete" onclick="return confirm('Remove this fuel type?')">✕</button>{% endif %}</td></form></tr>{% endfor %}
+<tr><form method="post" action="/settings/fuel"><td><input type="text" name="name" placeholder="e.g. CNG" class="w160"></td><td><select name="kind">{% for k, v in fuel_kinds %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select></td>
+<td class="num"><input type="number" step="any" name="economy" class="w80" placeholder="mi/unit"></td><td class="num">$<input type="number" step="any" name="price" class="w80"></td><td></td><td><label class="chk"><input type="checkbox" name="is_default" value="1"> default</label></td><td><button class="small secondary">+ Add</button></td></form></tr>
+</table></div></div>
+
+<form method="post" action="/settings">
+{% for grp in groups %}
+<div class="card"><div class="head"><h2>{{ grp }}</h2></div>
+<div class="wrap"><table>
+{% for r in rows if r.group == grp %}
+<tr><td style="width:280px">{{ r.label }}</td>
+<td style="width:180px">{% if r.is_text %}{% if r.key == 'fsc_mode' %}<select name="{{ r.key }}">{% for k in ['none','step','flat','mile'] %}<option value="{{ k }}" {% if r.value == k %}selected{% endif %}>{{ k }}</option>{% endfor %}</select>{% else %}<input type="text" name="{{ r.key }}" value="{{ r.value or '' }}" class="w110">{% endif %}{% else %}<input type="number" step="any" name="{{ r.key }}" value="{{ '' if r.value is none else r.value }}" class="w110">{% endif %}</td>
+<td class="muted" style="width:150px">{{ r.unit }}</td><td class="muted">{{ r.note }}</td></tr>
+{% endfor %}
+</table></div></div>
+{% endfor %}
+<div class="bar" style="margin-top:12px"><button type="submit">Save settings</button>
+<span class="muted small">Google keys: server key {{ 'set' if has_key else 'missing' }} · browser key {{ 'set' if has_browser_key else 'missing' }} (Environment tab in Render).</span></div>
+</form>
+{% endblock %}

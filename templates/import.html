@@ -1,0 +1,18 @@
+{% extends "base.html" %}{% block title %}Import{% endblock %}{% block content %}
+<div class="topbar"><div><h1>Import data</h1><div class="muted">Bring in locations, lanes and road miles from spreadsheets. Names must match between files (case doesn't matter). Existing rows with the same name are updated, not duplicated.</div></div></div>
+<div class="tiles"><div class="tile"><div class="v">{{ n_loc }}</div><div class="l">Locations</div></div><div class="tile"><div class="v">{{ n_lane }}</div><div class="l">Lanes</div></div><div class="tile"><div class="v">{{ n_dist }}</div><div class="l">Mileage pairs</div></div></div>
+<div class="grid2">
+<div class="card"><div class="head"><h2>1 · Locations</h2><a class="small" href="/import/template/locations.csv">template</a></div>
+<p class="muted small">Columns: name, kind (pickup / dropoff / both / yard), lat, lon, avg_qty, avg_weight_tons, load_minutes, unload_minutes, open_time, close_time, notes.</p>
+<form method="post" action="/import/locations" enctype="multipart/form-data" class="bar"><input type="file" name="file" accept=".csv" required><button>Import locations</button></form></div>
+<div class="card"><div class="head"><h2>2 · Lanes &amp; rates</h2><a class="small" href="/import/template/lanes.csv">template</a></div>
+<p class="muted small">Columns: pickup, dropoff, customer, product, rate_basis (unit / load / mile / hour / ton), rate, min_qty, pay_basis (pct / unit / mile / hour / load), pay_rate, notes. Import locations first.</p>
+<form method="post" action="/import/lanes" enctype="multipart/form-data" class="bar"><input type="file" name="file" accept=".csv" required><button>Import lanes</button></form></div>
+<div class="card"><div class="head"><h2>3 · Road miles (optional)</h2><a class="small" href="/import/template/mileage.csv">template</a></div>
+<p class="muted small">Columns: origin, dest, miles, minutes, approved (1/0). Use this to carry over mileage you already paid Google for. Otherwise fetch on the Mileage page.</p>
+<form method="post" action="/import/mileage" enctype="multipart/form-data" class="bar"><input type="file" name="file" accept=".csv" required><button>Import mileage</button></form></div>
+{% if petrol_available %}<div class="card"><div class="head"><h2>Starter data</h2></div>
+<p class="muted small">Load the Petrol Transport starter set (209 locations, 184 per-barrel lanes). Only works while this company has no locations.</p>
+<form method="post" action="/import/starter/petrol" class="bar" onsubmit="return confirm('Load the Petrol Transport starter data?')"><button class="secondary" {% if n_loc %}disabled{% endif %}>Load Petrol Transport data</button></form></div>{% endif %}
+</div>
+{% endblock %}
